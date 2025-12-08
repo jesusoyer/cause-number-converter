@@ -19,6 +19,7 @@ interface CaseResult {
 const CaseNumberField = () => {
   const [input, setInput] = useState("");
   const [results, setResults] = useState<CaseResult[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   // Strip everything except digits
   function normalizeCaseNumber(raw: string) {
@@ -32,7 +33,7 @@ const CaseNumberField = () => {
 
   function convertCauseNumber(raw: string): CaseResult {
     const trimmedRaw = raw.trim();
-    const upperRaw = trimmedRaw.toUpperCase();
+    let upperRaw = trimmedRaw.toUpperCase();
 
     const base: CaseResult = {
       id: Date.now() + Math.random(),
@@ -41,7 +42,46 @@ const CaseNumberField = () => {
       conversions: []
     };
 
-    // FACTS-style input: D-1-DC-YY-XXXXX/XXXXXX
+    // Normalize to alphanumeric for prefix checks
+    const alnum = upperRaw.replace(/[^A-Z0-9]/g, "");
+
+    // 🔹 0) CIVIL: D-1-GN or compact D1GN → "this is a civil case number"
+    if (alnum.startsWith("D1GN")) {
+      // Try to parse year + sequence if it’s in D-1-GN-YY-XXXXXX format
+      const civilPattern = /^D-1-GN-(\d{2})-(\d+)/i;
+      const civilMatch = upperRaw.match(civilPattern);
+
+      let yearStr: string | undefined;
+      let seq: string | undefined;
+
+      if (civilMatch) {
+        const yy = Number(civilMatch[1]);
+        const fullYear = yy >= 80 ? 1900 + yy : 2000 + yy;
+        yearStr = String(fullYear);
+        seq = civilMatch[2];
+      }
+
+      return {
+        ...base,
+        facts: upperRaw,
+        normalized: seq,
+        year: yearStr,
+        court: "Civil case number (D-1-GN)",
+        conversions: []
+      };
+    }
+
+    // 🔹 1) Compact FACTS like "d1dc05987678" → expand to D-1-DC-05-987678
+    const compactFactsPattern = /^D1DC(\d{2})(\d{5,6})$/;
+    const compactMatch = alnum.match(compactFactsPattern);
+
+    if (compactMatch) {
+      const yearPart = compactMatch[1]; // "05"
+      const seqPart = compactMatch[2];  // "987678"
+      upperRaw = `D-1-DC-${yearPart}-${seqPart}`;
+    }
+
+    // 🔹 2) FACTS-style input: D-1-DC-YY-XXXXX/XXXXXX
     const factsPattern = /^D-1-DC-(\d{2})-(\d{5,6})$/i;
     const factsMatch = upperRaw.match(factsPattern);
 
@@ -111,7 +151,7 @@ const CaseNumberField = () => {
       };
     }
 
-    // Non-FACTS inputs -> numeric rules
+    // 🔹 3) Non-FACTS inputs -> numeric rules
     const digits = normalizeCaseNumber(raw);
 
     // 5-digit: pre-1990 microfilm
@@ -200,15 +240,30 @@ const CaseNumberField = () => {
   }
 
   function handleConvert() {
-    if (!input.trim()) return;
+    const raw = input.trim();
+    if (!raw) return;
 
-    const convertedItem = convertCauseNumber(input);
+    // 🔹 Letter guard: only allow D, C, G, N if letters present
+    const letters = raw.toUpperCase().replace(/[^A-Z]/g, "");
+    if (letters && !/^[DCGN]+$/.test(letters)) {
+      setError("This cause/case number isn't ours (invalid letters).");
+      return;
+    }
+
+    setError(null);
+
+    const convertedItem = convertCauseNumber(raw);
     setResults((prev) => [convertedItem, ...prev]);
     setInput("");
   }
 
   function deleteCard(id: number) {
     setResults((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  function clearAll() {
+    setResults([]);
+    setError(null);
   }
 
   // Helper: decide color + label for 2002/2003/2004
@@ -241,30 +296,54 @@ const CaseNumberField = () => {
 
   return (
     <div className="w-full flex flex-col items-center mt-10 px-4">
-      {/* Input + Button */}
-      <div className="w-full max-w-md flex flex-col items-center gap-4">
+      {/* Input + Buttons */}
+      <div className="w-full max-w-md flex flex-col gap-2">
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            if (error) setError(null);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
               handleConvert();
             }
           }}
-          placeholder="Enter case number or FACTS (e.g. D-1-DC-05-123456)..."
+          placeholder="Enter case number or FACTS (e.g. D-1-DC-05-123456, d1dc05987678, D-1-GN-05-123456)..."
           className="w-full px-4 py-3 border rounded-lg shadow-sm 
           focus:outline-none focus:ring-2 focus:ring-green-600"
         />
 
-        <button
-          onClick={handleConvert}
-          className="w-full bg-green-600 text-white font-semibold py-3 
-          rounded-lg hover:bg-green-700 transition"
-        >
-          Convert
-        </button>
+        {error && (
+          <div className="text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-2 mt-1">
+          <button
+            onClick={handleConvert}
+            className="flex-1 bg-green-600 text-white font-semibold py-3 
+            rounded-lg hover:bg-green-700 transition"
+          >
+            Convert
+          </button>
+
+          <button
+            onClick={clearAll}
+            disabled={results.length === 0}
+            className={`px-4 py-3 rounded-lg font-semibold border text-sm transition
+              ${
+                results.length === 0
+                  ? "border-gray-200 text-gray-300 cursor-not-allowed bg-gray-50"
+                  : "border-red-300 text-red-700 bg-red-50 hover:bg-red-100"
+              }`}
+          >
+            Clear all
+          </button>
+        </div>
       </div>
 
       {/* Results Grid */}
@@ -331,7 +410,9 @@ const CaseNumberField = () => {
               {item.facts && (
                 <div>
                   <div className="text-[11px] text-gray-500 uppercase tracking-wide mb-1">
-                    FACTS Cause Number
+                    {item.court?.includes("Civil")
+                      ? "Civil cause number"
+                      : "FACTS Cause Number"}
                   </div>
                   <div className="font-mono text-lg font-semibold tracking-wide 
                                   bg-gray-100 rounded-md px-3 py-2 break-all">
