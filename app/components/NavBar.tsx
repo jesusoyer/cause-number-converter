@@ -11,14 +11,54 @@ export default function NavBar() {
 
       {/* RIGHT SIDE: NAV LINKS */}
       <div className="flex gap-6 text-md">
-        <Link className="hover:text-green-600 transition" href="/">
-          Home
+        {/* 1) NextV2 (My Criminal Queue) */}
+        <Link
+          href="http://tdcwebapps/NextV2/Queue/MyCriminalQueue"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-green-600 transition"
+        >
+          NextV2
         </Link>
-        <Link className="hover:text-green-600 transition" href="/tools">
-          Tools
+
+        {/* 2) Appeals Creator */}
+        <Link
+          href="http://tdc-app2-p/AppealsCreatorV2"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-green-600 transition"
+        >
+          Appeals Creator
         </Link>
-        <Link className="hover:text-green-600 transition" href="/settings">
-          Settings
+
+        {/* 3) TCDC Index → Index of Criminal Minutes: */}
+        <Link
+          href="http://tdcwebapps/TCDCIndex/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-green-600 transition"
+        >
+          Index of Criminal Minutes:
+        </Link>
+
+        {/* 4) Historical Criminal Search → E-Historical */}
+        <Link
+          href="https://ehistoricalcriminal.traviscountytx.gov/name"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-green-600 transition"
+        >
+          E-Historical
+        </Link>
+
+        {/* 5) Criminal Applications → Criminal Offsite */}
+        <Link
+          href="http://tdcwebapps/CriminalApplications"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-green-600 transition"
+        >
+          Criminal Offsite
         </Link>
       </div>
 

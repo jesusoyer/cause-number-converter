@@ -176,17 +176,45 @@ const CaseNumberField = () => {
     }
 
     // 6-digit: microfilm/tablets/shelf
+    // New rule: if it's 6 digits and starts with 9,
+    // the first two digits ARE the year (YY).
     if (digits.length === 6) {
-      const num = Number(digits);
+      if (digits.startsWith("9")) {
+        const yearSuffix = digits.slice(0, 2); // e.g. "91", "93"
+        const yyNum = Number(yearSuffix);
 
-      let year = 1990;
-      let courtLabel = "FACTS / Microfilm (1990)";
+        // Map 2-digit year to full year
+        const fullYear = yyNum >= 80 ? 1900 + yyNum : 2000 + yyNum;
 
-      if (num >= 910256 && num <= 912518) {
-        year = 1991;
-        courtLabel = "FACTS / Microfilm (1991)";
+        const factsValue = `D-1-DC-${yearSuffix}-${digits}`;
+
+        let courtLabel = "";
+        if (fullYear < 1990) {
+          courtLabel = "FACTS / Microfilm (pre-1990)";
+        } else if (fullYear >= 1990 && fullYear <= 2000) {
+          courtLabel = "FACTS / Microfilm / Shelf (1990–2000)";
+        } else {
+          courtLabel = "FACTS (6-digit)";
+        }
+
+        return {
+          ...base,
+          normalized: digits,      // core sequence: 914954, 935913, etc.
+          facts: factsValue,       // D-1-DC-91-914954, D-1-DC-93-935913
+          year: String(fullYear),  // 1991, 1993, etc.
+          court: courtLabel,
+          conversions: [
+            {
+              label: "Microfilm / Tablet / Shelf (6-digit)",
+              value: digits
+            }
+          ]
+        };
       }
 
+      // If it's 6 digits but DOESN'T start with 9,
+      // keep a generic 1990 mapping (old behavior, simplified).
+      const year = 1990;
       const yy = lastTwoDigitsOfYear(year);
       const factsValue = `D-1-DC-${yy}-${digits}`;
 
@@ -195,7 +223,7 @@ const CaseNumberField = () => {
         normalized: digits,
         facts: factsValue,
         year: String(year),
-        court: courtLabel,
+        court: "FACTS / Microfilm (1990)",
         conversions: [
           {
             label: "Microfilm / Tablet / Shelf (6-digit)",
